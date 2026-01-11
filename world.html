@@ -1,0 +1,96 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Interactive World Map</title>
+
+<script src="https://cdn.jsdelivr.net/npm/simplemaps-world@latest/mapdata.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/simplemaps-world@latest/worldmap.js"></script>
+
+<style>
+body{
+    text-align:center;
+        font-family: Arial;
+            background:#111;
+                color:white;
+                    margin:0;
+                    }
+
+                    #topBar{
+                        padding:10px;
+                            background:#222;
+                            }
+
+                            button{
+                                padding:8px 15px;
+                                    font-size:16px;
+                                        margin:5px;
+                                            cursor:pointer;
+                                                border:none;
+                                                    border-radius:5px;
+                                                    }
+
+                                                    #map{
+                                                        width:95%;
+                                                            max-width:1200px;
+                                                                margin:auto;
+                                                                }
+
+                                                                #country{
+                                                                    font-size:22px;
+                                                                        margin-top:10px;
+                                                                            font-weight:bold;
+                                                                            }
+                                                                            </style>
+                                                                            </head>
+
+                                                                            <body>
+
+                                                                            <div id="topBar">
+                                                                                <button onclick="toggleMode()">🌗 Dark / Light</button>
+                                                                                    <button onclick="zoomIn()">➕ Zoom In</button>
+                                                                                        <button onclick="zoomOut()">➖ Zoom Out</button>
+                                                                                        </div>
+
+                                                                                        <h2>🌍 Touch a Country</h2>
+                                                                                        <div id="country">Click any country</div>
+
+                                                                                        <div id="map"></div>
+
+                                                                                        <script>
+                                                                                        let dark = true;
+                                                                                        let zoom = 1;
+
+                                                                                        simplemaps_worldmap.hooks.click_state = function(id){
+                                                                                            var name = simplemaps_worldmap_mapdata.state_specific[id].name;
+                                                                                                document.getElementById("country").innerText = "You selected: " + name;
+
+                                                                                                    // Highlight selected country
+                                                                                                        simplemaps_worldmap_mapdata.state_specific[id].color = "#ff9900";
+                                                                                                            simplemaps_worldmap.refresh();
+                                                                                                            }
+
+                                                                                                            function toggleMode(){
+                                                                                                                if(dark){
+                                                                                                                        document.body.style.background="#fff";
+                                                                                                                                document.body.style.color="#000";
+                                                                                                                                        dark=false;
+                                                                                                                                            } else {
+                                                                                                                                                    document.body.style.background="#111";
+                                                                                                                                                            document.body.style.color="#fff";
+                                                                                                                                                                    dark=true;
+                                                                                                                                                                        }
+                                                                                                                                                                        }
+
+                                                                                                                                                                        function zoomIn(){
+                                                                                                                                                                            zoom += 0.1;
+                                                                                                                                                                                document.getElementById("map").style.transform = "scale("+zoom+")";
+                                                                                                                                                                                }
+
+                                                                                                                                                                                function zoomOut(){
+                                                                                                                                                                                    zoom -= 0.1;
+                                                                                                                                                                                        document.getElementById("map").style.transform = "scale("+zoom+")";
+                                                                                                                                                                                        }
+                                                                                                                                                                                        </script>
+
+                                                                                                                                                                                        </body>
+                                                                                                                                                                                        </html>

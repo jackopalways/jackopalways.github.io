@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OG Jack — Lightning Logo Generator</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#0f1724; color:#e6eef8; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    .panel { background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); padding:24px; border-radius:12px; width:980px; box-shadow: 0 10px 40px rgba(2,6,23,0.8); }
+    header { display:flex; gap:16px; align-items:center; margin-bottom:16px; }
+    h1 { margin:0; font-size:18px; }
+    .controls { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    label { font-size:13px; color:#bcd4ff; }
+    input[type="color"], input[type="text"], input[type="number"] { padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:inherit; }
+    button { background:linear-gradient(90deg,#5eead4,#60a5fa); border:none; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:700; color:#042a2b; }
+    .preview { display:flex; gap:16px; align-items:center; }
+    #svgPreview { width:320px; height:320px; background:linear-gradient(180deg,#081126,#051827); border-radius:12px; display:flex; align-items:center; justify-content:center; padding:12px; }
+    textarea { width:100%; height:140px; margin-top:12px; background:#071029; color:#cfe9ff; border-radius:8px; padding:12px; border:1px solid rgba(255,255,255,0.03); }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <header>
+      <h1>OG Jack — Lightning Logo Generator</h1>
+    </header>
+
+    <div class="controls">
+      <div>
+        <label>Logo text</label><br/>
+        <input id="textInput" type="text" value="OG Jack" />
+      </div>
+
+      <div>
+        <label>Bolt start color</label><br/>
+        <input id="c1" type="color" value="#FFD24A" />
+      </div>
+
+      <div>
+        <label>Bolt middle color</label><br/>
+        <input id="c2" type="color" value="#FF9F2E" />
+      </div>
+
+      <div>
+        <label>Bolt end color</label><br/>
+        <input id="c3" type="color" value="#FF4D4D" />
+      </div>
+
+      <div>
+        <label>Background circle</label><br/>
+        <input id="bg" type="color" value="#0b1020" />
+      </div>
+
+      <div>
+        <label>Size (px)</label><br/>
+        <input id="size" type="number" value="1200" min="200" max="4000" />
+      </div>
+
+      <div style="align-self:end;">
+        <button id="regen">Regenerate</button>
+      </div>
+
+      <div style="align-self:end;">
+        <button id="download">Download SVG</button>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div id="svgPreview" aria-hidden="true"></div>
+      <div style="flex:1">
+        <p style="margin-top:0;color:#bcd4ff">SVG output (copy or download):</p>
+        <textarea id="svgOutput" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Build SVG string with parameters
+    function buildSVG({text='OG Jack', size=1200, c1='#FFD24A', c2='#FF9F2E', c3='#FF4D4D', bg='#0b1020'}) {
+      const viewBox = '0 0 1200 1200';
+      // Replace colors in gradient stops and circle fill
+      return `<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${size}" height="${size}" role="img" aria-labelledby="titleDesc">
+  <title id="titleDesc">${escapeXml(text)} lightning logo</title>
+  <defs>
+    <linearGradient id="boltGrad" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="${c1}"/>
+      <stop offset="0.5" stop-color="${c2}"/>
+      <stop offset="1" stop-color="${c3}"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feOffset dx="12" dy="18" result="off"/><feGaussianBlur in="off" stdDeviation="18" result="blur"/><feColorMatrix in="blur" result="shadow" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="edgeLight" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/><stop offset="1" stop-color="#000000" stop-opacity="0.08"/></linearGradient>
+    <linearGradient id="boltStroke" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#6b2f00"/><stop offset="1" stop-color="#1a0b00"/></linearGradient>
+  </defs>
+
+  <circle cx="600" cy="420" r="360" fill="${bg}"/>
+  <circle cx="600" cy="420" r="360" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="10"/>
+  <g transform="translate(0,40)" filter="url(#shadow)">
+    <path d="M480 180 L760 180 L560 520 L820 520 L460 980 L560 600 L420 600 Z"
+          fill="url(#boltGrad)" stroke="url(#boltStroke)" stroke-width="18" stroke-linejoin="round" filter="url(#glow)"/>
+    <path d="M480 180 L740 180 L560 520 L820 520 L460 980 L560 600 L420 600 Z"
+          fill="none" stroke="url(#edgeLight)" stroke-width="6" stroke-linejoin="round" opacity="0.65"/>
+  </g>
+
+  <g transform="translate(0,0)">
+    <text x="600" y="960" text-anchor="middle" font-family="Montserrat, Arial, sans-serif"
+          font-weight="800" font-size="120" fill="#FFFFFF" letter-spacing="3">${escapeXml(text)}</text>
+    <text x="600" y="1010" text-anchor="middle" font-family="Inter, Arial, sans-serif"
+          font-weight="600" font-size="36" fill="rgba(255,255,255,0.72)" letter-spacing="1.5">Electric. Bold. Original.</text>
+  </g>
+</svg>`;
+    }
+
+    // simple XML escape for text insertion
+    function escapeXml(unsafe) {
+      return unsafe.replace(/[<>&'"]/g, function (c) {
+        switch (c) {
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '&': return '&amp;';
+          case "'": return '&apos;';
+          case '"': return '&quot;';
+        }
+      });
+    }
+
+    const textInput = document.getElementById('textInput');
+    const c1 = document.getElementById('c1');
+    const c2 = document.getElementById('c2');
+    const c3 = document.getElementById('c3');
+    const bg = document.getElementById('bg');
+    const sizeIn = document.getElementById('size');
+    const preview = document.getElementById('svgPreview');
+    const output = document.getElementById('svgOutput');
+    const regen = document.getElementById('regen');
+    const download = document.getElementById('download');
+
+    function render() {
+      const svg = buildSVG({
+        text: textInput.value || 'OG Jack',
+        size: Number(sizeIn.value) || 1200,
+        c1: c1.value,
+        c2: c2.value,
+        c3: c3.value,
+        bg: bg.value
+      });
+      preview.innerHTML = svg;
+      output.value = svg;
+    }
+
+    regen.addEventListener('click', render);
+    // initial render
+    render();
+
+    download.addEventListener('click', () => {
+      const blob = new Blob([output.value], {type: 'image/svg+xml;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (textInput.value || 'OG_Jack') + '.svg';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    // quick live updates for inputs
+    [textInput, c1, c2, c3, bg, sizeIn].forEach(el => el.addEventListener('input', render));
+  </script>
+</body>
+</html>

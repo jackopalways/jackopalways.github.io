@@ -1,0 +1,377 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interactive World Map</title>
+
+<script src="https://cdn.jsdelivr.net/npm/simplemaps-world@latest/mapdata.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/simplemaps-world@latest/worldmap.js"></script>
+
+<style>
+  body {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+    margin: 0;
+  }
+
+  #topBar {
+    padding: 10px;
+    background: #222;
+  }
+
+  button {
+    padding: 8px 15px;
+    font-size: 16px;
+    margin: 5px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+  }
+
+  #map {
+    width: 95%;
+    max-width: 1200px;
+    margin: auto;
+    overflow: visible;
+  }
+
+  /* Smooth zoom transition for the SVG injected by simplemaps */
+  #map svg {
+    transition: transform 0.18s ease;
+    transform-origin: 50% 50%;
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  #country {
+    font-size: 22px;
+    margin-top: 10px;
+    font-weight: bold;
+  }
+
+  /* New: shape viewer */
+  #shapeContainer {
+    margin: 12px auto 30px;
+    width: 320px;
+    max-width: 95%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  #shapeTitle {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  #shapeSVG {
+    width: 100%;
+    height: 200px;
+    background: transparent;
+    display: block;
+  }
+
+  #shapeFallback {
+    color: #ddd;
+    font-size: 13px;
+    padding: 16px 6px;
+  }
+
+  /* Light mode overrides when toggled */
+  .light-mode body, .light-mode #shapeContainer {
+    /* handled in JS by changing inline styles */
+  }
+</style>
+</head>
+
+<body>
+
+  <div id="topBar">
+    <button onclick="toggleMode()">🌗 Dark / Light</button>
+    <button onclick="zoomIn()">➕ Zoom In</button>
+    <button onclick="zoomOut()">➖ Zoom Out</button>
+  </div>
+
+  <h2>🌍 Touch a Country</h2>
+  <div id="country">Click any country</div>
+
+  <div id="map"></div>
+
+  <!-- shape viewer -->
+  <div id="shapeContainer" aria-live="polite">
+    <div id="shapeTitle">Country shape</div>
+    <!-- SVG where we'll clone the country's shape -->
+    <svg id="shapeSVG" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Selected country shape">
+      <!-- cloned content will go here -->
+    </svg>
+    <div id="shapeFallback" style="display:none;">Shape not available</div>
+  </div>
+
+  <script>
+    let dark = true;
+    let zoom = 1;
+    let lastSelected = null;
+
+    // Country click hook (simplemaps)
+    simplemaps_worldmap.hooks.click_state = function(id) {
+      var name = simplemaps_worldmap_mapdata.state_specific[id].name || id;
+      document.getElementById("country").innerText = "You selected: " + name;
+
+      // Reset previously selected country's override color (if any)
+      if (lastSelected && lastSelected !== id) {
+        if (simplemaps_worldmap_mapdata.state_specific[lastSelected] &&
+            simplemaps_worldmap_mapdata.state_specific[lastSelected].hasOwnProperty('color')) {
+          delete simplemaps_worldmap_mapdata.state_specific[lastSelected].color;
+        }
+      }
+
+      // Highlight selected country
+      if (simplemaps_worldmap_mapdata.state_specific[id]) {
+        simplemaps_worldmap_mapdata.state_specific[id].color = "#ff9900";
+      }
+      lastSelected = id;
+
+      // Refresh map to apply style changes
+      if (typeof simplemaps_worldmap.refresh === 'function') {
+        simplemaps_worldmap.refresh();
+      }
+
+      // Also display the country's shape in the viewer
+      displayCountryShape(id, name);
+    };
+
+    function toggleMode() {
+      const topBar = document.getElementById('topBar');
+      const shapeContainer = document.getElementById('shapeContainer');
+      if (dark) {
+        document.body.style.background = "#fff";
+        document.body.style.color = "#000";
+        topBar.style.background = "#ddd";
+        // make shape viewer lighter
+        shapeContainer.style.background = "rgba(0,0,0,0.04)";
+        shapeContainer.style.border = "1px solid rgba(0,0,0,0.08)";
+        dark = false;
+      } else {
+        document.body.style.background = "#111";
+        document.body.style.color = "#fff";
+        topBar.style.background = "#222";
+        shapeContainer.style.background = "rgba(255,255,255,0.04)";
+        shapeContainer.style.border = "1px solid rgba(255,255,255,0.08)";
+        dark = true;
+      }
+    }
+
+    function applyZoom() {
+      // The simplemaps library injects an SVG inside #map; scale that SVG.
+      const svg = document.querySelector('#map svg');
+      if (!svg) return;
+      svg.style.transform = `scale(${zoom})`;
+    }
+
+    function zoomIn() {
+      // clamp zoom to a reasonable max
+      zoom = Math.min(3, +(zoom + 0.1).toFixed(2));
+      applyZoom();
+    }
+
+    function zoomOut() {
+      // clamp zoom to a reasonable min
+      zoom = Math.max(0.4, +(zoom - 0.1).toFixed(2));
+      applyZoom();
+    }
+
+    // Ensure the zoom/transform is applied after the map is rendered.
+    // simplemaps may render asynchronously; use a small retry loop as a safety net.
+    document.addEventListener('DOMContentLoaded', function () {
+      let attempts = 0;
+      const applyWhenReady = function () {
+        attempts++;
+        const svg = document.querySelector('#map svg');
+        if (svg) {
+          applyZoom();
+        } else if (attempts < 20) {
+          setTimeout(applyWhenReady, 200);
+        }
+      };
+      setTimeout(applyWhenReady, 200);
+    });
+
+    // -------------------------
+    // Shape display functions
+    // -------------------------
+
+    function clearShapeViewer() {
+      const shapeSVG = document.getElementById('shapeSVG');
+      while (shapeSVG.firstChild) shapeSVG.removeChild(shapeSVG.firstChild);
+      document.getElementById('shapeFallback').style.display = 'none';
+    }
+
+    function showFallback(message) {
+      clearShapeViewer();
+      const fb = document.getElementById('shapeFallback');
+      fb.textContent = message || 'Shape not available';
+      fb.style.display = 'block';
+    }
+
+    // Try several heuristics to find the country's SVG node(s) inside the map
+    function findCountryNodes(rootSVG, id, name) {
+      if (!rootSVG) return null;
+      const trySelectors = [];
+
+      // direct id
+      trySelectors.push('#' + cssEscape(id));
+
+      // common data attributes
+      trySelectors.push('[data-id="' + id + '"]');
+      trySelectors.push('[data-state="' + id + '"]');
+      trySelectors.push('[data-code="' + id + '"]');
+
+      // title text match (paths sometimes use <title>Country name</title>)
+      // we'll match any element that contains a title child with the exact name
+      // handled separately below
+
+      // try group ids that end with -<id> or include id
+      trySelectors.push('g[id$="-'+id+'"]');
+      trySelectors.push('g[id*="'+id+'"]');
+      trySelectors.push('path[id$="-'+id+'"]');
+      trySelectors.push('path[id*="'+id+'"]');
+
+      // run selectors
+      for (const sel of trySelectors) {
+        try {
+          const node = rootSVG.querySelector(sel);
+          if (node) return [node];
+        } catch (e) {
+          // ignore invalid selector errors
+        }
+      }
+
+      // search for element with <title> matching name
+      if (name) {
+        const candidates = Array.from(rootSVG.querySelectorAll('path, g, polygon, rect, circle'));
+        for (const el of candidates) {
+          const title = el.querySelector && el.querySelector('title');
+          if (title && title.textContent.trim() === name.trim()) {
+            return [el];
+          }
+        }
+      }
+
+      // sometimes countries are multiple paths grouped together; attempt to find by title in ancestors
+      const all = Array.from(rootSVG.querySelectorAll('path, g'));
+      const matches = [];
+      for (const el of all) {
+        const title = el.querySelector && el.querySelector('title');
+        if (title && title.textContent && title.textContent.trim() === name.trim()) {
+          matches.push(el);
+        }
+      }
+      if (matches.length) return matches;
+
+      // final fallback: try to find any element whose id contains the 2-letter ISO code if provided (id may be like 'US')
+      if (id && id.length <= 3) {
+        const contains = Array.from(rootSVG.querySelectorAll('[id]')).filter(e => e.id && e.id.toLowerCase().includes(id.toLowerCase()));
+        if (contains.length) return contains;
+      }
+
+      return null;
+    }
+
+    // clone the nodes into shapeSVG and fit them
+    function displayCountryShape(id, name) {
+      clearShapeViewer();
+      const mapSVG = document.querySelector('#map svg');
+      const shapeSVG = document.getElementById('shapeSVG');
+
+      if (!mapSVG) {
+        showFallback('Map SVG not loaded yet');
+        return;
+      }
+
+      const nodes = findCountryNodes(mapSVG, id, name);
+      if (!nodes || nodes.length === 0) {
+        showFallback('Could not find shape for ' + name);
+        return;
+      }
+
+      // create wrapper group
+      const ns = "http://www.w3.org/2000/svg";
+      const wrapper = document.createElementNS(ns, 'g');
+      wrapper.setAttribute('id', 'shape-clone-wrapper');
+
+      // track whether any path-like element was cloned
+      let clonedSomething = false;
+
+      nodes.forEach(node => {
+        // if node is a <g>, clone the whole group; otherwise clone the single element
+        const clone = node.cloneNode(true);
+
+        // normalize visual style for viewer: give a visible stroke + fill
+        // apply to clone and its descendants where applicable
+        (function applyStyle(el) {
+          if (!el || !(el.setAttribute)) return;
+          const tag = el.tagName && el.tagName.toLowerCase();
+          // Only set fill/stroke on shape elements (path, polygon, rect, circle, g children)
+          if (tag === 'path' || tag === 'polygon' || tag === 'rect' || tag === 'circle' || tag === 'ellipse') {
+            // set nice highlight color and stroke
+            try {
+              el.setAttribute('fill', '#ff9900');
+              el.setAttribute('stroke', '#333');
+              el.setAttribute('stroke-width', '0.8');
+            } catch (e) {}
+            clonedSomething = true;
+          }
+          // recurse
+          for (let i = 0; i < el.children.length; i++) {
+            applyStyle(el.children[i]);
+          }
+        })(clone);
+
+        wrapper.appendChild(clone);
+      });
+
+      if (!clonedSomething) {
+        // if we didn't find typical shape elements, still append what's available
+        if (!wrapper.firstChild) {
+          showFallback('Shape data exists but is not in a supported element type');
+          return;
+        }
+      }
+
+      // append wrapper to the viewer SVG so getBBox works
+      shapeSVG.appendChild(wrapper);
+
+      // compute bounding box and adjust viewBox (with padding)
+      // use try/catch because getBBox can throw in some cases
+      try {
+        // Force browser to compute layout
+        const bbox = wrapper.getBBox();
+        const pad = Math.max(bbox.width, bbox.height) * 0.08 + 2; // padding around shape
+        const minX = bbox.x - pad;
+        const minY = bbox.y - pad;
+        const w = Math.max(1, bbox.width + pad * 2);
+        const h = Math.max(1, bbox.height + pad * 2);
+        shapeSVG.setAttribute('viewBox', `${minX} ${minY} ${w} ${h}`);
+        shapeSVG.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        document.getElementById('shapeFallback').style.display = 'none';
+      } catch (e) {
+        // fallback if getBBox fails
+        shapeSVG.setAttribute('viewBox', '0 0 100 100');
+        document.getElementById('shapeFallback').style.display = 'none';
+      }
+    }
+
+    // small helper: CSS.escape polyfill (simple safe version)
+    function cssEscape(ident) {
+      if (window.CSS && CSS.escape) return CSS.escape(ident);
+      return ident.replace(/([ #;?%&,.+*~\':"!^$[\]()=>|/@])/g, '\\$1');
+    }
+  </script>
+
+</body>
+</html>
